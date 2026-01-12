@@ -3,105 +3,227 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aviso material</title>
+  <title>Turnos Valdorba</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
-    label, input, button { font-size: 18px; }
-    input { width: 100%; padding: 12px; margin: 8px 0 16px; }
-    button { width: 100%; padding: 12px; }
-    .card { max-width: 520px; margin: 0 auto; }
-    .hint { color: #555; font-size: 14px; margin-top: 10px; }
-    .result { margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 8px; }
+    .card { max-width: 820px; margin: 0 auto; }
+    label { display:block; margin-top: 14px; font-weight: 600; }
+    select, button { font-size: 16px; width: 100%; padding: 10px; margin-top: 6px; }
+    .hint { color:#555; font-size: 13px; margin-top: 10px; }
+    .result { margin-top: 16px; }
+    .item { padding: 12px; background:#f5f5f5; border-radius: 10px; margin-bottom: 10px; }
+    .item b { display:block; margin-bottom: 6px; }
+    a.btn { display:inline-block; padding:10px 12px; background:#111; color:#fff; border-radius:8px; text-decoration:none; margin-top:10px; }
+    .small { font-size: 13px; color:#444; }
+    .grid2 { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 640px){ .grid2 { grid-template-columns: 1fr 1fr; } }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Preparar material</h1>
-    <p>Introduce tu dorsal y te generamos el aviso en Google Calendar.</p>
+<div class="card">
+  <h1>Turnos Valdorba</h1>
+  <p>Selecciona tu nombre y genera tus avisos de <b>Campo</b> y <b>Material</b> hasta el próximo junio (inclusive).</p>
 
-    <label for="dorsal">Dorsal</label>
-    <input id="dorsal" type="number" min="0" step="1" placeholder="Ej: 7" />
+  <label for="person">Nombre</label>
+  <select id="person"></select>
 
-    <button id="btn" type="button">Generar aviso</button>
+  <button id="btn" type="button">Generar avisos</button>
 
-    <div id="out" class="result" style="display:none"></div>
-    <div class="hint">Nota: al abrir Google Calendar tendrás que pulsar <b>Guardar</b>.</div>
+  <div class="hint">
+    Nota: Google Calendar siempre te pedirá confirmar pulsando <b>Guardar</b>.
   </div>
 
+  <div id="out" class="result"></div>
+</div>
+
 <script>
-  // === EDITA SOLO ESTA PARTE ===
-  // Dorsal -> fecha (YYYY-MM-DD). Pon el lunes (o el día que quieras el aviso).
-  const assignments = {
-    7:  "2026-01-19",
-    10: "2026-01-26",
-    4:  "2026-02-02",
-    12: "2026-02-09"
-  };
+/** ========= TU CONFIG ========= **/
+const turnos = {
+  1: ['Mini Dosant', 'Maxi Dosant', 'Benito jr'],
+  2: ['Juan', 'Jaime', 'Ivano'],
+  3: ['Alex', 'Ezcurra', 'Gonzalo', 'Miguelón'],
+  4: ['Ivanurru', 'DLR', 'Marcos'],
+  5: ['Sanjo', 'Matu', 'Itu'],
+  6: ['Chuchín', 'Oscar', 'Andoni'],
+  7: ['Nico', 'Roberto', 'Joseba', 'Asier']
+};
 
-  const eventHour = "19:00";       // hora del aviso
-  const durationMinutes = 15;      // duración
-  const titleBase = "Preparar material";
-  const detailsBase = "Te toca preparar el material esta semana. Revisa la lista y confirma con el entrenador.";
-  const locationText = "";
+// Semana base (lunes) — equivalente a datetime(2025,6,16)
+const diaInicio = new Date(2025, 5, 16, 0, 0, 0); // mes=5 => junio
 
-  function pad(n){ return String(n).padStart(2,'0'); }
+const numeroInicioCampo = 3;
+const numeroInicioMaterial = 4;
 
-  function toGCalDates(startLocal, endLocal) {
-    const fmt = (d) =>
-      d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "T" +
-      pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
-    return fmt(startLocal) + "/" + fmt(endLocal);
-  }
+// Cuándo quieres el aviso dentro de la semana:
+const avisoHora = "19:00";
+const duracionMin = 200;
+const offsetDias = -1; // 0=lunes, -1=domingo anterior, etc.
 
-  function buildGCalUrl({text, dates, details, location}) {
-    const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
-    const params = new URLSearchParams();
-    params.set("text", text);
-    params.set("dates", dates);
-    if (details) params.set("details", details);
-    if (location) params.set("location", location);
-    return base + "&" + params.toString();
-  }
+/** ========= HELPERS ========= **/
+function pad(n){ return String(n).padStart(2,'0'); }
+function ymd(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 
-  document.getElementById("btn").addEventListener("click", () => {
-    const dorsal = Number(document.getElementById("dorsal").value);
-    const out = document.getElementById("out");
+function addDays(date, days){
+  const d = new Date(date.getTime());
+  d.setDate(d.getDate() + days);
+  return d;
+}
 
-    if (!Number.isInteger(dorsal)) {
-      out.style.display = "block";
-      out.innerHTML = "Introduce un dorsal válido.";
-      return;
+function mondayOfWeek(date){
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0,0,0);
+  const day = (d.getDay() + 6) % 7; // domingo->6, lunes->0...
+  d.setDate(d.getDate() - day);
+  return d;
+}
+
+function weeksBetween(fromDate, toDate){
+  const ms = 24*60*60*1000;
+  const fromMon = mondayOfWeek(fromDate);
+  const toMon = mondayOfWeek(toDate);
+  return Math.floor((toMon - fromMon) / (7*ms));
+}
+
+function toGCalDates(startLocal, endLocal) {
+  const fmt = (d) =>
+    d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "T" +
+    pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  return fmt(startLocal) + "/" + fmt(endLocal);
+}
+
+function buildGCalUrl({text, dates, details, location}) {
+  const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+  const params = new URLSearchParams();
+  params.set("text", text);
+  params.set("dates", dates);
+  if (details) params.set("details", details);
+  if (location) params.set("location", location);
+  return base + "&" + params.toString();
+}
+
+function turnoNumeroParaSemana(difSemanas, tipo){
+  const len = Object.keys(turnos).length; // 7
+  const n0 = (tipo === "campo" ? numeroInicioCampo : numeroInicioMaterial);
+  let num = (n0 + difSemanas) % len;
+  if (num === 0) num = len;
+  return num;
+}
+
+function nombresTurnoParaSemana(difSemanas, tipo){
+  const num = turnoNumeroParaSemana(difSemanas, tipo);
+  return { numero: num, nombres: turnos[num] || [] };
+}
+
+function uniqueNamesFromTurnos(){
+  const set = new Set();
+  Object.values(turnos).forEach(arr => arr.forEach(n => set.add(n)));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,'es'));
+}
+
+// Devuelve el último día de junio del "próximo junio inclusive"
+function endOfNextJuneInclusive(fromDate){
+  const y = fromDate.getFullYear();
+  const m = fromDate.getMonth(); // 0..11
+  // si estamos en julio o más (>=6), el próximo junio es el del año siguiente
+  const targetYear = (m >= 6) ? (y + 1) : y;
+  // Último día de junio = día 0 de julio
+  return new Date(targetYear, 6, 0, 23, 59, 59);
+}
+
+function weeksUntilEndInclusive(startWeekMonday, endDate){
+  // Cuántas semanas (lunes) caben desde startWeekMonday hasta el lunes de la semana de endDate (inclusive)
+  const endWeekMonday = mondayOfWeek(endDate);
+  const ms = 24*60*60*1000;
+  return Math.floor((endWeekMonday - startWeekMonday) / (7*ms)) + 1;
+}
+
+/** ========= UI INIT ========= **/
+const personSel = document.getElementById("person");
+uniqueNamesFromTurnos().forEach(name => {
+  const opt = document.createElement("option");
+  opt.value = name;
+  opt.textContent = name;
+  personSel.appendChild(opt);
+});
+
+document.getElementById("btn").addEventListener("click", () => {
+  const person = personSel.value;
+  const out = document.getElementById("out");
+  out.innerHTML = "";
+
+  const today = new Date();
+  const startMonday = mondayOfWeek(today);           // empezamos en la semana actual
+  const endDate = endOfNextJuneInclusive(today);     // hasta junio próximo inclusive
+  const totalWeeks = weeksUntilEndInclusive(startMonday, endDate);
+
+  const difBase = weeksBetween(diaInicio, startMonday); // semanas desde diaInicio hasta la semana actual
+
+  let hits = 0;
+
+  for (let i = 0; i < totalWeeks; i++) {
+    const weekStart = addDays(startMonday, i * 7);
+    const difSemana = difBase + i;
+
+    const campo = nombresTurnoParaSemana(difSemana, "campo");
+    const material = nombresTurnoParaSemana(difSemana, "material");
+
+    const leTocaCampo = campo.nombres.includes(person);
+    const leTocaMaterial = material.nombres.includes(person);
+
+    if (!leTocaCampo && !leTocaMaterial) continue;
+
+    hits++;
+
+    const avisoDia = addDays(weekStart, offsetDias);
+    const [hh,mm] = avisoHora.split(":").map(Number);
+
+    function buildItem(tipo, turnoObj){
+      const start = new Date(avisoDia.getFullYear(), avisoDia.getMonth(), avisoDia.getDate(), hh, mm, 0);
+      const end = new Date(start.getTime() + duracionMin * 60000);
+      const dates = toGCalDates(start, end);
+
+      const text = `Turno ${tipo.toUpperCase()} – ${person}`;
+      const details =
+        `Te toca turno de ${tipo} (grupo ${turnoObj.numero}).\n` +
+        `Semana que empieza: ${ymd(weekStart)}\n` +
+        `En el turno están: ${turnoObj.nombres.join(", ")}\n\n` +
+        `Generado desde Turnos Valdorba.`;
+
+      const url = buildGCalUrl({ text, dates, details, location: "" });
+
+      const div = document.createElement("div");
+      div.className = "item";
+      div.innerHTML = `
+        <b>${tipo === "material" ? "Material" : "Campo"} · Semana del ${ymd(weekStart)} (grupo ${turnoObj.numero})</b>
+        <div class="small">Aviso: ${ymd(avisoDia)} ${avisoHora} · Turno: ${turnoObj.nombres.join(", ")}</div>
+        <a class="btn" href="${url}">Añadir a Google Calendar</a>
+      `;
+      return div;
     }
 
-    const dateStr = assignments[dorsal];
-    if (!dateStr) {
-      out.style.display = "block";
-      out.innerHTML = `No tengo asignación para el dorsal <b>${dorsal}</b>.`;
-      return;
-    }
+    // Cabecera semana + 1 o 2 tarjetas según corresponda
+    const wrap = document.createElement("div");
+    wrap.className = "grid2";
 
-    const [y,m,d] = dateStr.split("-").map(Number);
-    const [hh,mm] = eventHour.split(":").map(Number);
+    if (leTocaCampo) wrap.appendChild(buildItem("campo", campo));
+    if (leTocaMaterial) wrap.appendChild(buildItem("material", material));
 
-    const start = new Date(y, m-1, d, hh, mm, 0);
-    const end = new Date(start.getTime() + durationMinutes * 60000);
+    // separador visual semanal
+    const weekTitle = document.createElement("div");
+    weekTitle.className = "item";
+    weekTitle.innerHTML = `<b>Semana del ${ymd(weekStart)}</b><div class="small">Tus avisos de esta semana:</div>`;
+    out.appendChild(weekTitle);
+    out.appendChild(wrap);
+  }
 
-    const dates = toGCalDates(start, end);
-    const text = `${titleBase} – Dorsal ${dorsal}`;
-    const details = `${detailsBase}\n\nDorsal: ${dorsal}\nSemana/fecha: ${dateStr}`;
-
-    const url = buildGCalUrl({ text, dates, details, location: locationText });
-
-    out.style.display = "block";
-    out.innerHTML = `
-      <div><b>Asignación:</b> ${dateStr} a las ${eventHour}</div>
-      <div style="margin-top:12px;">
-        <a href="${url}" style="display:inline-block; width:100%; text-align:center; padding:12px; background:#111; color:#fff; border-radius:8px; text-decoration:none;">
-          Añadir a Google Calendar
-        </a>
-      </div>
-    `;
-  });
+  if (hits === 0) {
+    out.innerHTML = `<div class="item"><b>Sin resultados</b><div class="small">No apareces en turnos desde esta semana hasta junio próximo.</div></div>`;
+  } else {
+    const info = document.createElement("div");
+    info.className = "item";
+    info.innerHTML = `<b>Rango generado</b><div class="small">Desde ${ymd(startMonday)} hasta junio próximo inclusive. Semanas revisadas: ${totalWeeks}.</div>`;
+    out.prepend(info);
+  }
+});
 </script>
 </body>
 </html>
