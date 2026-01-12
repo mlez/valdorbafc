@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aviso material</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; }
+    label, input, button { font-size: 18px; }
+    input { width: 100%; padding: 12px; margin: 8px 0 16px; }
+    button { width: 100%; padding: 12px; }
+    .card { max-width: 520px; margin: 0 auto; }
+    .hint { color: #555; font-size: 14px; margin-top: 10px; }
+    .result { margin-top: 16px; padding: 12px; background: #f5f5f5; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Preparar material</h1>
+    <p>Introduce tu dorsal y te generamos el aviso en Google Calendar.</p>
+
+    <label for="dorsal">Dorsal</label>
+    <input id="dorsal" type="number" min="0" step="1" placeholder="Ej: 7" />
+
+    <button id="btn" type="button">Generar aviso</button>
+
+    <div id="out" class="result" style="display:none"></div>
+    <div class="hint">Nota: al abrir Google Calendar tendrás que pulsar <b>Guardar</b>.</div>
+  </div>
+
+<script>
+  // === EDITA SOLO ESTA PARTE ===
+  // Dorsal -> fecha (YYYY-MM-DD). Pon el lunes (o el día que quieras el aviso).
+  const assignments = {
+    7:  "2026-01-19",
+    10: "2026-01-26",
+    4:  "2026-02-02",
+    12: "2026-02-09"
+  };
+
+  const eventHour = "19:00";       // hora del aviso
+  const durationMinutes = 15;      // duración
+  const titleBase = "Preparar material";
+  const detailsBase = "Te toca preparar el material esta semana. Revisa la lista y confirma con el entrenador.";
+  const locationText = "";
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  function toGCalDates(startLocal, endLocal) {
+    const fmt = (d) =>
+      d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "T" +
+      pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    return fmt(startLocal) + "/" + fmt(endLocal);
+  }
+
+  function buildGCalUrl({text, dates, details, location}) {
+    const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+    const params = new URLSearchParams();
+    params.set("text", text);
+    params.set("dates", dates);
+    if (details) params.set("details", details);
+    if (location) params.set("location", location);
+    return base + "&" + params.toString();
+  }
+
+  document.getElementById("btn").addEventListener("click", () => {
+    const dorsal = Number(document.getElementById("dorsal").value);
+    const out = document.getElementById("out");
+
+    if (!Number.isInteger(dorsal)) {
+      out.style.display = "block";
+      out.innerHTML = "Introduce un dorsal válido.";
+      return;
+    }
+
+    const dateStr = assignments[dorsal];
+    if (!dateStr) {
+      out.style.display = "block";
+      out.innerHTML = `No tengo asignación para el dorsal <b>${dorsal}</b>.`;
+      return;
+    }
+
+    const [y,m,d] = dateStr.split("-").map(Number);
+    const [hh,mm] = eventHour.split(":").map(Number);
+
+    const start = new Date(y, m-1, d, hh, mm, 0);
+    const end = new Date(start.getTime() + durationMinutes * 60000);
+
+    const dates = toGCalDates(start, end);
+    const text = `${titleBase} – Dorsal ${dorsal}`;
+    const details = `${detailsBase}\n\nDorsal: ${dorsal}\nSemana/fecha: ${dateStr}`;
+
+    const url = buildGCalUrl({ text, dates, details, location: locationText });
+
+    out.style.display = "block";
+    out.innerHTML = `
+      <div><b>Asignación:</b> ${dateStr} a las ${eventHour}</div>
+      <div style="margin-top:12px;">
+        <a href="${url}" style="display:inline-block; width:100%; text-align:center; padding:12px; background:#111; color:#fff; border-radius:8px; text-decoration:none;">
+          Añadir a Google Calendar
+        </a>
+      </div>
+    `;
+  });
+</script>
+</body>
+</html>
