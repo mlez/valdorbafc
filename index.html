@@ -152,7 +152,7 @@ document.getElementById("btn").addEventListener("click", () => {
   out.innerHTML = "";
 
   const today = new Date();
-  const startMonday = mondayOfWeek(today);           // empezamos en la semana actual
+  const startMonday = mondayOfWeek(diaInicio);           // empezamos en la semana actual
   const endDate = endOfNextJuneInclusive(today);     // hasta junio próximo inclusive
   const totalWeeks = weeksUntilEndInclusive(startMonday, endDate);
 
