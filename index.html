@@ -50,7 +50,7 @@ const turnos = {
 };
 
 // Semana base (lunes) — equivalente a datetime(2025,6,16)
-const diaInicio = new Date(2026, 7, 6, 0, 0, 0); 
+const diaInicio = new Date(2026, 6, 6, 0, 0, 0); //5=Junio
 
 const numeroInicioCampo = 2;
 const numeroInicioMaterial = 3;
@@ -125,7 +125,7 @@ function endOfNextJuneInclusive(fromDate){
   const y = fromDate.getFullYear();
   const m = fromDate.getMonth(); // 0..11
   // si estamos en julio o más (>=6), el próximo junio es el del año siguiente
-  const targetYear = (m >= 6) ? (y + 1) : y;
+  const targetYear = (m >= 5) ? (y + 1) : y;
   // Último día de junio = día 0 de julio
   return new Date(targetYear, 6, 0, 23, 59, 59);
 }
