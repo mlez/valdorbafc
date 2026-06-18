@@ -209,11 +209,11 @@ document.getElementById("btn").addEventListener("click", () => {
     if (leTocaMaterial) wrap.appendChild(buildItem("material", material));
 
     // separador visual semanal
-    const weekTitle = document.createElement("div");
-    weekTitle.className = "item";
-    weekTitle.innerHTML = `<b>Semana del ${ymd(weekStart)}</b><div class="small">Tus avisos de esta semana:</div>`;
-    out.appendChild(weekTitle);
-    out.appendChild(wrap);
+    // const weekTitle = document.createElement("div");
+    // weekTitle.className = "item";
+    // weekTitle.innerHTML = `<b>Semana del ${ymd(weekStart)}</b><div class="small">Tus avisos de esta semana:</div>`;
+    // out.appendChild(weekTitle);
+    // out.appendChild(wrap);
   }
 
   if (hits === 0) {
